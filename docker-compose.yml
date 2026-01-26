@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+
+  dev:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+    command: bash
+    stdin_open: true
+    tty: true
+
+  test:
+    build: .
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+    working_dir: /app
+    command: cargo test
+
+volumes:
+  cargo-cache:

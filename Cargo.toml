@@ -3,6 +3,14 @@ name = "api2spec-fixture-rocket"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "api2spec_fixture_rocket"
+path = "src/lib.rs"
+
+[[bin]]
+name = "api2spec-fixture-rocket"
+path = "src/main.rs"
+
 [dependencies]
 rocket = { version = "0.5", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
