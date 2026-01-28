@@ -1,8 +1,9 @@
 use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
+use serde_json;
 
-// Import the main rocket instance
-use api2spec_fixture_rocket::rocket;
+// Import the main rocket instance and types
+use api2spec_fixture_rocket::{rocket, HealthStatus, User, Post};
 
 fn create_client() -> Client {
     Client::tracked(rocket()).expect("valid rocket instance")
@@ -20,8 +21,9 @@ mod health_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"status\":\"ok\""));
-        assert!(body.contains("\"version\":\"0.1.0\""));
+        let health: HealthStatus = serde_json::from_str(&body).unwrap();
+        assert_eq!(health.status, "ok");
+        assert_eq!(health.version, "0.1.0");
     }
 
     #[test]
@@ -33,8 +35,9 @@ mod health_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"status\":\"ready\""));
-        assert!(body.contains("\"version\":\"0.1.0\""));
+        let health: HealthStatus = serde_json::from_str(&body).unwrap();
+        assert_eq!(health.status, "ready");
+        assert_eq!(health.version, "0.1.0");
     }
 }
 
@@ -50,10 +53,12 @@ mod user_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("Alice"));
-        assert!(body.contains("Bob"));
-        assert!(body.contains("alice@example.com"));
-        assert!(body.contains("bob@example.com"));
+        let users: Vec<User> = serde_json::from_str(&body).unwrap();
+        assert_eq!(users.len(), 2);
+        assert_eq!(users[0].name, "Alice");
+        assert_eq!(users[0].email, "alice@example.com");
+        assert_eq!(users[1].name, "Bob");
+        assert_eq!(users[1].email, "bob@example.com");
     }
 
     #[test]
@@ -65,9 +70,10 @@ mod user_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"id\":42"));
-        assert!(body.contains("Sample User"));
-        assert!(body.contains("user@example.com"));
+        let user: User = serde_json::from_str(&body).unwrap();
+        assert_eq!(user.id, 42);
+        assert_eq!(user.name, "Sample User");
+        assert_eq!(user.email, "user@example.com");
     }
 
     #[test]
@@ -83,9 +89,10 @@ mod user_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"id\":1"));
-        assert!(body.contains("Charlie"));
-        assert!(body.contains("charlie@example.com"));
+        let user: User = serde_json::from_str(&body).unwrap();
+        assert_eq!(user.id, 1); // ID is set by server
+        assert_eq!(user.name, "Charlie");
+        assert_eq!(user.email, "charlie@example.com");
     }
 
     #[test]
@@ -98,6 +105,18 @@ mod user_tests {
             .dispatch();
 
         // Rocket returns 400 Bad Request for invalid JSON
+        assert_eq!(response.status(), Status::BadRequest);
+    }
+
+    #[test]
+    fn test_create_user_with_malformed_json_returns_bad_request() {
+        let client = create_client();
+        let response = client
+            .post("/users")
+            .header(ContentType::JSON)
+            .body(r#"{not valid json at all"#)
+            .dispatch();
+
         assert_eq!(response.status(), Status::BadRequest);
     }
 
@@ -127,9 +146,10 @@ mod user_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"id\":5"));
-        assert!(body.contains("Updated Name"));
-        assert!(body.contains("updated@example.com"));
+        let user: User = serde_json::from_str(&body).unwrap();
+        assert_eq!(user.id, 5); // ID from path
+        assert_eq!(user.name, "Updated Name");
+        assert_eq!(user.email, "updated@example.com");
     }
 
     #[test]
@@ -139,6 +159,18 @@ mod user_tests {
             .put("/users/5")
             .header(ContentType::JSON)
             .body(r#"not valid json"#)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::BadRequest);
+    }
+
+    #[test]
+    fn test_update_user_with_empty_body_returns_bad_request() {
+        let client = create_client();
+        let response = client
+            .put("/users/5")
+            .header(ContentType::JSON)
+            .body("")
             .dispatch();
 
         assert_eq!(response.status(), Status::BadRequest);
@@ -161,8 +193,10 @@ mod user_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"user_id\":7"));
-        assert!(body.contains("User Post"));
+        let posts: Vec<Post> = serde_json::from_str(&body).unwrap();
+        assert_eq!(posts.len(), 1);
+        assert_eq!(posts[0].user_id, 7);
+        assert_eq!(posts[0].title, "User Post");
     }
 }
 
@@ -178,10 +212,12 @@ mod post_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("First Post"));
-        assert!(body.contains("Second Post"));
-        assert!(body.contains("Hello world"));
-        assert!(body.contains("Another post"));
+        let posts: Vec<Post> = serde_json::from_str(&body).unwrap();
+        assert_eq!(posts.len(), 2);
+        assert_eq!(posts[0].title, "First Post");
+        assert_eq!(posts[0].body, "Hello world");
+        assert_eq!(posts[1].title, "Second Post");
+        assert_eq!(posts[1].body, "Another post");
     }
 
     #[test]
@@ -193,9 +229,10 @@ mod post_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"id\":99"));
-        assert!(body.contains("Sample Post"));
-        assert!(body.contains("Post body"));
+        let post: Post = serde_json::from_str(&body).unwrap();
+        assert_eq!(post.id, 99);
+        assert_eq!(post.title, "Sample Post");
+        assert_eq!(post.body, "Post body");
     }
 
     #[test]
@@ -211,10 +248,11 @@ mod post_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"id\":1"));
-        assert!(body.contains("\"user_id\":5"));
-        assert!(body.contains("New Post"));
-        assert!(body.contains("Post content"));
+        let post: Post = serde_json::from_str(&body).unwrap();
+        assert_eq!(post.id, 1); // ID is set by server
+        assert_eq!(post.user_id, 5);
+        assert_eq!(post.title, "New Post");
+        assert_eq!(post.body, "Post content");
     }
 
     #[test]
@@ -224,6 +262,18 @@ mod post_tests {
             .post("/posts")
             .header(ContentType::JSON)
             .body(r#"{"broken"#)
+            .dispatch();
+
+        assert_eq!(response.status(), Status::BadRequest);
+    }
+
+    #[test]
+    fn test_create_post_with_malformed_json_returns_bad_request() {
+        let client = create_client();
+        let response = client
+            .post("/posts")
+            .header(ContentType::JSON)
+            .body(r#"{not valid json"#)
             .dispatch();
 
         assert_eq!(response.status(), Status::BadRequest);
@@ -254,10 +304,11 @@ mod post_tests {
         assert_eq!(response.content_type(), Some(ContentType::JSON));
 
         let body = response.into_string().unwrap();
-        assert!(body.contains("\"id\":5"));
-        assert!(body.contains("\"user_id\":3"));
-        assert!(body.contains("Updated Title"));
-        assert!(body.contains("Updated body"));
+        let post: Post = serde_json::from_str(&body).unwrap();
+        assert_eq!(post.id, 5); // ID from path
+        assert_eq!(post.user_id, 3);
+        assert_eq!(post.title, "Updated Title");
+        assert_eq!(post.body, "Updated body");
     }
 
     #[test]
@@ -322,10 +373,36 @@ mod error_tests {
     }
 
     #[test]
+    fn test_get_user_with_uuid_format_returns_unprocessable_entity() {
+        let client = create_client();
+        // UUID format should fail since the endpoint expects an integer
+        let response = client.get("/users/550e8400-e29b-41d4-a716-446655440000").dispatch();
+
+        assert_eq!(response.status(), Status::UnprocessableEntity);
+    }
+
+    #[test]
     fn test_invalid_post_id_type_returns_unprocessable_entity() {
         let client = create_client();
         // Rocket forwards when parameter guard fails, resulting in 422
         let response = client.get("/posts/abc").dispatch();
+
+        assert_eq!(response.status(), Status::UnprocessableEntity);
+    }
+
+    #[test]
+    fn test_get_post_with_uuid_format_returns_unprocessable_entity() {
+        let client = create_client();
+        // UUID format should fail since the endpoint expects an integer
+        let response = client.get("/posts/550e8400-e29b-41d4-a716-446655440000").dispatch();
+
+        assert_eq!(response.status(), Status::UnprocessableEntity);
+    }
+
+    #[test]
+    fn test_delete_user_with_invalid_id_returns_unprocessable_entity() {
+        let client = create_client();
+        let response = client.delete("/users/invalid").dispatch();
 
         assert_eq!(response.status(), Status::UnprocessableEntity);
     }
@@ -341,6 +418,10 @@ mod error_tests {
 
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.content_type(), Some(ContentType::JSON));
+
+        let body = response.into_string().unwrap();
+        let user: User = serde_json::from_str(&body).unwrap();
+        assert_eq!(user.name, "Test");
     }
 
     #[test]

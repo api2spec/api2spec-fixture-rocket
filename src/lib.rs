@@ -2,28 +2,28 @@
 
 use rocket::serde::{json::Json, Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(crate = "rocket::serde")]
-struct HealthStatus {
-    status: String,
-    version: String,
+pub struct HealthStatus {
+    pub status: String,
+    pub version: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(crate = "rocket::serde")]
-struct User {
-    id: i32,
-    name: String,
-    email: String,
+pub struct User {
+    pub id: i32,
+    pub name: String,
+    pub email: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(crate = "rocket::serde")]
-struct Post {
-    id: i32,
-    user_id: i32,
-    title: String,
-    body: String,
+pub struct Post {
+    pub id: i32,
+    pub user_id: i32,
+    pub title: String,
+    pub body: String,
 }
 
 #[get("/health")]
